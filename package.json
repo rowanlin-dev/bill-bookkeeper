@@ -1,0 +1,14 @@
+{
+  "name": "bill-bookkeeper",
+  "version": "2.7.0",
+  "private": true,
+  "description": "个人财务记账系统：AI 智能识别 + Web 可视化看板",
+  "scripts": {
+    "start": "node scripts/_core-start.js",
+    "stop": "node scripts/_core-stop.js",
+    "install:server": "npm --prefix packages/server install",
+    "install:frontend": "npm --prefix packages/frontend install",
+    "dev:server": "npm --prefix packages/server run dev",
+    "dev:frontend": "npm --prefix packages/frontend run dev"
+  }
+}
