@@ -29,8 +29,9 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
-# ===== 调研/规划文档（不入库）=====
-docs/
+# ===== 调研/规划文档（不入库，但演示脚本/逐字稿需入库，单独放开）=====
+docs/*
+!docs/demo/
 
 # ===== Vite 构建临时缓存（不入库）=====
 *.timestamp-*.mjs

@@ -18,6 +18,7 @@ const accountsRouter = require('./routes/accounts');
 const systemRouter = require('./routes/system');
 const exportRouter = require('./routes/export');
 const importRouter = require('./routes/import');
+const dataRouter = require('./routes/data');
 
 const app = express();
 
@@ -43,6 +44,7 @@ app.use('/api/accounts', accountsRouter);
 app.use('/api/system', systemRouter);
 app.use('/api/export', exportRouter);
 app.use('/api/import', importRouter);
+app.use('/api/data', dataRouter);
 
 // API 404：未知接口统一返回 JSON，而不是 Express 默认 HTML
 app.use('/api', (req, res) => {

@@ -37,6 +37,44 @@
       <p v-if="onlineMsg" class="text-sm" :class="onlineOk ? 'text-green-600' : 'text-red-600'">{{ onlineMsg }}</p>
     </div>
 
+    <!-- 在线：演示数据 / 一键重置 -->
+    <div v-if="!isOffline" class="bg-white rounded-xl shadow-sm p-6 space-y-4">
+      <div>
+        <h3 class="font-medium text-gray-700 mb-2">🎬 演示数据</h3>
+        <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800 mb-3">
+          ⚠️ 演示数据仅用于<strong>项目演示</strong>，不含任何真实财务信息，<strong>请勿用于真实记账</strong>。若误导入，可点击下方「重置所有数据」一键清空恢复初始状态。
+        </div>
+        <p class="text-sm text-gray-500 leading-relaxed">
+          一键加载内置脱敏演示账本，自动<strong>先清空当前数据再导入</strong>，保证干净。覆盖收入 / 支出 / 转账 / 预计 / 待生效 / 已取消等全部使用场景。
+        </p>
+      </div>
+      <div class="flex flex-wrap items-center gap-3">
+        <button
+          @click="loadDemo"
+          :disabled="loadingDemo"
+          class="bg-purple-600 text-white px-5 py-2 rounded-lg hover:bg-purple-700 disabled:opacity-50"
+        >
+          {{ loadingDemo ? '加载中...' : '🎬 加载演示数据' }}
+        </button>
+      </div>
+      <p v-if="demoMsg" class="text-sm" :class="demoOk ? 'text-green-600' : 'text-red-600'">{{ demoMsg }}</p>
+
+      <!-- 危险操作区 -->
+      <div class="pt-4 border-t border-red-100">
+        <h4 class="font-medium text-red-600 mb-2">🗑️ 危险操作区</h4>
+        <p class="text-sm text-gray-500 mb-3">
+          将<strong>永久清空</strong>所有账本数据（交易 / 账户 / 固定支出 / 水电 / 负债），并恢复 5 个默认账户。此操作<strong>不可撤销</strong>。
+        </p>
+        <button
+          @click="resetAll"
+          :disabled="loadingReset"
+          class="bg-red-600 text-white px-5 py-2 rounded-lg hover:bg-red-700 disabled:opacity-50"
+        >
+          {{ loadingReset ? '重置中...' : '🗑️ 重置所有数据' }}
+        </button>
+      </div>
+    </div>
+
     <!-- 离线：本地数据管理 -->
     <div v-if="isOffline" class="bg-white rounded-xl shadow-sm p-6 space-y-4">
       <div>
@@ -165,6 +203,11 @@
 import { ref, onMounted } from 'vue'
 import { api } from '../api/client'
 import { exportAll, importAll } from '../offline/importExport'
+import { useAccountStore } from '../stores/accounts'
+import { useTransactionStore } from '../stores/transactions'
+import { useDashboardStore } from '../stores/dashboard'
+import { useUtilityStore } from '../stores/utility'
+import { useCashflowStore } from '../stores/cashflow'
 
 const isOffline = import.meta.env.VITE_OFFLINE === 'true'
 
@@ -193,6 +236,12 @@ const ioOk = ref(true)
 const onlineMsg = ref('')
 const onlineOk = ref(true)
 const onlineFileInput = ref(null)
+
+// 演示数据 / 重置
+const loadingDemo = ref(false)
+const demoMsg = ref('')
+const demoOk = ref(true)
+const loadingReset = ref(false)
 
 onMounted(async () => {
   if (isOffline) return // 离线模式无需加载 server 配置
@@ -361,6 +410,61 @@ async function onOnlineFile(e) {
     onlineMsg.value = '导入失败：' + err.message
   } finally {
     e.target.value = ''
+  }
+}
+
+// 刷新所有相关 store，使各页面立即反映最新数据
+async function refreshAllStores() {
+  await Promise.all([
+    useAccountStore().fetchAccounts(),
+    useTransactionStore().fetchTransactions({ limit: 200 }),
+    useDashboardStore().fetchDashboard(),
+    useUtilityStore().fetchReadings(),
+    useCashflowStore().fetchForecast(90),
+  ])
+}
+
+// 加载内置脱敏演示数据：先重置（清空+恢复默认账户），再拉取并导入演示账本
+async function loadDemo() {
+  if (!confirm('加载演示数据会先清空当前账本、再导入脱敏示例数据，确定继续？\n（真实数据请提前用「导出账本」备份）')) return
+  loadingDemo.value = true
+  demoMsg.value = ''
+  try {
+    await api.post('/data/reset', { confirm: 'RESET' })
+    const demo = await api.get('/data/demo')
+    if (!demo || !demo.data) throw new Error('演示数据格式异常')
+    const res = await api.post('/import', { data: demo.data })
+    await refreshAllStores()
+    demoOk.value = true
+    const r = (res && res.report) || {}
+    const parts = Object.keys(r)
+      .map((k) => `${k}: 新增${r[k].inserted || 0}/更新${r[k].updated || 0}`)
+      .join('  ')
+    demoMsg.value = `✅ 演示数据已加载（${parts}）。可在首页 / 流水 / 仪表盘查看效果。`
+  } catch (e) {
+    demoOk.value = false
+    demoMsg.value = '加载失败：' + e.message
+  } finally {
+    loadingDemo.value = false
+  }
+}
+
+// 一键重置所有数据（清空 5 表 + 恢复 5 默认账户）
+async function resetAll() {
+  if (!confirm('⚠️ 确定重置所有数据？全部账本将被永久清空，仅保留 5 个默认账户！')) return
+  if (!confirm('再次确认：此操作不可撤销，确定继续？')) return
+  loadingReset.value = true
+  demoMsg.value = ''
+  try {
+    await api.post('/data/reset', { confirm: 'RESET' })
+    await refreshAllStores()
+    demoOk.value = true
+    demoMsg.value = '✅ 已重置：所有数据已清空，恢复 5 个默认账户（微信/银行卡/现金/支付宝/岭南通）。'
+  } catch (e) {
+    demoOk.value = false
+    demoMsg.value = '重置失败：' + e.message
+  } finally {
+    loadingReset.value = false
   }
 }
 </script>
