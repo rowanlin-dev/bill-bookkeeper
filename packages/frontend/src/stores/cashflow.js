@@ -25,11 +25,9 @@ export const useCashflowStore = defineStore('cashflow', () => {
     }
   }
 
-  // 把确定性预测数据拼成快照，交给 Forecast skill 做 AI 解读
-  async function analyze() {
-    if (!forecastData.value) return
-    const d = forecastData.value
-    const snapshot = [
+  // 把确定性预测数据拼成快照文本，供 Forecast / Simulator 两个 skill 共用
+  function buildSnapshot(d) {
+    return [
       `当前现金：¥${d.currentCash}`,
       `近30天日均收入：¥${d.avgDailyIncome}，日均支出：¥${d.avgDailyExpense}，日均净额：¥${d.avgDailyNet}`,
       `每月固定支出：¥${d.monthlyFixed}`,
@@ -39,6 +37,18 @@ export const useCashflowStore = defineStore('cashflow', () => {
         ? `预计收支事件：${d.events.map(e => `${e.date} ${e.type === '收入' ? '+' : '-'}¥${e.amount}（${e.name}）`).join('；')}`
         : '预计收支事件：无',
     ].join('\n')
+  }
+
+  // 确保快照数据已就绪（页面通常已加载，这里只兜底）
+  async function ensureSnapshot() {
+    if (!forecastData.value) await fetchForecast()
+    return forecastData.value ? buildSnapshot(forecastData.value) : null
+  }
+
+  // 把确定性预测数据拼成快照，交给 Forecast skill 做 AI 解读
+  async function analyze() {
+    const snapshot = await ensureSnapshot()
+    if (!snapshot) return
 
     aiLoading.value = true
     aiAnalysis.value = ''
@@ -61,10 +71,16 @@ export const useCashflowStore = defineStore('cashflow', () => {
     simLoading.value = true
     simResult.value = ''
     try {
+      // 携带账本真实快照：AI 应基于已有数据做增量模拟，不得再向用户索要已有数据
+      const snapshot = await ensureSnapshot()
+      const content = snapshot
+        ? `【我的账本快照】\n${snapshot}\n\n【模拟请求】\n${text}`
+        : `【我的账本快照】\n（账本暂无数据，当前现金与收支均为 0，请直接按我的假设做模拟）\n\n【模拟请求】\n${text}`
+
       const res = await api.post('/ai/chat', {
         project: 'bill',
         skill: 'Simulator',
-        messages: [{ role: 'user', content: text }],
+        messages: [{ role: 'user', content }],
         context: {},
       })
       simResult.value = res.response || 'AI 未返回内容'
