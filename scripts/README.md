@@ -24,14 +24,14 @@ bill-bookkeeper/
 ├── 📄 uninstall.bat        → 调用 scripts/_uninstall.bat
 │
 └── 📁 scripts/
-    ├── 📄 _install.bat      ← 安装依赖（Node/Python/pnpm/venv/pip）
+    ├── 📄 _install.bat      ← 安装依赖（Node/pnpm）
     ├── 📄 _config.bat       ← 配置 API Key
     ├── 📄 _core-start.js    ← 核心启动（跨平台）
     ├── 📄 _core-stop.js     ← 核心关闭（跨平台）
     ├── 📄 _diagnose.bat     ← 诊断工具
     ├── 📄 _migrate.bat      ← 数据迁移
     ├── 📄 _uninstall.bat    ← 卸载清理
-    └── 📄 migrate-data.py   ← Python 迁移脚本
+    └── 📄 migrate-data.py   ← Python 迁移脚本（需系统 Python + pip install openpyxl）
 ```
 
 ## 兼容性处理

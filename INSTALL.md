@@ -7,8 +7,8 @@
 | 依赖 | 版本 | 说明 |
 |------|------|------|
 | Node.js | **≥ 22.5** | 后端使用 Node 内置 SQLite，无需任何原生编译 |
-| Python | ≥ 3.9 | AI 服务 |
 | pnpm | 无需 | 本项目统一用 npm（Node 自带） |
+| Python | ≥ 3.9（仅迁移旧 Excel 时需要） | 只有 `scripts/migrate.bat` 用到，且需 `pip install openpyxl` |
 
 ---
 
@@ -16,21 +16,18 @@
 
 ### 第 1 步：安装依赖
 
-运行 **`scripts/install.bat`**（只需一次）。它会自动检查环境并安装 AI / 后端 / 前端三方依赖。
+运行 **`scripts/install.bat`**（只需一次）。它会自动检查环境并安装后端 / 前端两方依赖。
 
 ### 第 2 步：启动
 
 双击 **`start.bat`**，等待显示：
 
 ```
-✅ AI Service: READY  (http://localhost:5000)
 ✅ Server: READY      (http://localhost:3000)
 ✅ Frontend: READY    (http://localhost:5173)
 ```
 
 浏览器打开 **http://localhost:5173**。
-
-> 💡 如果 AI 服务已被其他项目（如 snowball-daily）启动，会显示 `SHARED` 并直接复用，这是正常现象。
 
 ### 第 3 步：配置 AI（在网页里完成）
 
@@ -50,7 +47,7 @@
 | 服务状态、重启、日志 | 网页「设置 → 🖥️ 系统控制台」 |
 | **开机自启动** | 系统控制台勾选"开机自动启动"（免管理员，登录 Windows 时静默拉起） |
 | 修改 API Key / 模型 | 网页「设置」页 |
-| 导入 Excel 账本 | `scripts/migrate.bat` |
+| 导入 Excel 账本 | `scripts/migrate.bat`（需系统 Python + `pip install openpyxl`） |
 
 辅助脚本（安装/诊断/卸载等）都在 `scripts/` 目录。
 
@@ -83,14 +80,14 @@
 
 ### Q2: 网页打不开 / 数据为空
 
-1. 打开「设置 → 系统控制台」看三个服务是否都是 🟢
+1. 打开「设置 → 系统控制台」看两个服务是否都是 🟢
 2. 点"重启全部服务"，等 10 秒自动刷新
 
 ### Q3: AI 记账不工作
 
 1. 「设置」页确认 API Key 状态是 ✅ 已配置
-2. 系统控制台查看"AI 服务"日志
-3. 检查网络（需要访问 DeepSeek API）
+2. 系统控制台查看"后端服务"日志
+3. 检查网络（需要访问模型 API）
 
 ### Q4: 余额和实际钱包对不上
 
@@ -112,7 +109,7 @@
 ### 重装依赖
 
 1. `stop.bat` 关闭服务
-2. 删除 `packages/ai/venv`、`packages/server/node_modules`、`packages/frontend/node_modules`
+2. 删除 `packages/server/node_modules`、`packages/frontend/node_modules`
 3. 重新运行 `scripts/install.bat`
 
 ### 更新代码（git）

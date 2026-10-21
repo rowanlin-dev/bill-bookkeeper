@@ -20,8 +20,8 @@ function pickNodeExe() {
   return fs.existsSync(nvmNode) ? nvmNode : process.execPath;
 }
 
+// AI 能力已在 server 进程内实现（src/ai/），不再作为独立服务单列
 const SERVICES = [
-  { key: 'ai-service', name: 'AI 服务', port: 5000, health: '/health' },
   { key: 'server', name: '后端服务', port: 3000, health: '/health' },
   { key: 'frontend', name: '前端界面', port: 5173, health: null },
 ];
@@ -56,7 +56,7 @@ function readPid(key) {
   }
 }
 
-// GET /api/system/status - 三服务状态
+// GET /api/system/status - 两服务状态
 router.get('/status', async (req, res) => {
   const services = await Promise.all(SERVICES.map(async (s) => {
     const up = s.health ? await httpCheck(s.port, s.health) : await tcpCheck(s.port);
@@ -104,7 +104,7 @@ router.post('/autostart', (req, res) => {
 
 // GET /api/system/logs?service=server&lines=100 - 查看服务日志尾部
 router.get('/logs', (req, res) => {
-  const allowed = ['ai-service', 'server', 'frontend'];
+  const allowed = ['server', 'frontend'];
   const service = allowed.includes(req.query.service) ? req.query.service : 'server';
   const lines = Math.min(parseInt(req.query.lines, 10) || 100, 500);
   try {

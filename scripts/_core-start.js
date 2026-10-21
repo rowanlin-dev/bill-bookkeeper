@@ -43,12 +43,6 @@ function printTitle(title) {
   log('');
 }
 
-function getPythonPath() {
-  return IS_WIN
-    ? path.join(PACKAGES, 'ai', 'venv', 'Scripts', 'python.exe')
-    : path.join(PACKAGES, 'ai', 'venv', 'bin', 'python');
-}
-
 // node:sqlite 在 Node 22.5~23.3 需要 --experimental-sqlite 标志，23.4+ 内置稳定
 function sqliteFlagArg() {
   const [maj, min] = process.versions.node.split('.').map(Number);
@@ -56,15 +50,6 @@ function sqliteFlagArg() {
 }
 
 const SERVICES = [
-  {
-    name: 'AI Service',
-    key: 'ai-service',
-    cwd: path.join(PACKAGES, 'ai'),
-    getCmd: () => getPythonPath(),
-    args: ['main.py'],
-    port: 5000,
-    env: { ...process.env, PORT: '5000', PYTHONIOENCODING: 'utf-8' },
-  },
   {
     name: 'Server',
     key: 'server',
@@ -96,27 +81,6 @@ function checkPort(port, timeout = 3000) {
   });
 }
 
-// 检查端口上是否已是可共享的健康 AI 服务（任何项目的 AI 都可以，project 字段在请求体里区分）
-function checkServiceHealth(svc, timeout = 3000) {
-  return new Promise((resolve) => {
-    if (svc.key !== 'ai-service') {
-      // 后端/前端服务不可跨项目复用（数据不同）
-      resolve(false);
-      return;
-    }
-    const req = require('http').get(
-      { host: '127.0.0.1', port: svc.port, path: '/health', timeout },
-      (res) => {
-        let body = '';
-        res.on('data', (c) => { body += c; });
-        res.on('end', () => resolve(res.statusCode === 200 && body.includes('"ok"')));
-      }
-    );
-    req.on('error', () => resolve(false));
-    req.on('timeout', () => { req.destroy(); resolve(false); });
-  });
-}
-
 async function waitForPort(port, maxWait = 60000) {
   const start = Date.now();
   while (Date.now() - start < maxWait) {
@@ -136,17 +100,6 @@ function checkEnv() {
     checks.push({ name: 'Node.js', ok: false, version: 'not found', fix: 'https://nodejs.org/' });
   }
   try {
-    const v = execSync('python --version', { encoding: 'utf8' }).trim();
-    checks.push({ name: 'Python', ok: true, version: v, fix: '' });
-  } catch {
-    try {
-      const v = execSync('python3 --version', { encoding: 'utf8' }).trim();
-      checks.push({ name: 'Python', ok: true, version: v, fix: '' });
-    } catch {
-      checks.push({ name: 'Python', ok: false, version: 'not found', fix: 'https://python.org/' });
-    }
-  }
-  try {
     const v = execSync('pnpm -v', { encoding: 'utf8' }).trim();
     checks.push({ name: 'pnpm', ok: true, version: v, fix: '', optional: true });
   } catch {
@@ -157,23 +110,11 @@ function checkEnv() {
 }
 
 function checkInstallStatus() {
-  const status = {
-    aiVenv: fs.existsSync(path.join(PACKAGES, 'ai', 'venv')),
-    aiDeps: false,
+  return {
     serverDeps: fs.existsSync(path.join(PACKAGES, 'server', 'node_modules')),
     frontendDeps: fs.existsSync(path.join(PACKAGES, 'frontend', 'node_modules')),
     config: fs.existsSync(path.join(ROOT, '.env')),
   };
-  if (status.aiVenv) {
-    try {
-      const py = getPythonPath();
-      execSync(`"${py}" -c "import fastapi"`, { stdio: 'pipe' });
-      status.aiDeps = true;
-    } catch {
-      status.aiDeps = false;
-    }
-  }
-  return status;
 }
 
 function startService(svc) {
@@ -192,13 +133,7 @@ function startService(svc) {
       }
     }
 
-    // 端口已被占用时：如果是我们自己同类的健康服务（如另一项目已启动的共享 AI），直接复用
     if (await checkPort(svc.port, 1500)) {
-      if (await checkServiceHealth(svc)) {
-        ok(`${svc.name} already running on :${svc.port} (shared), reusing`);
-        resolve({ service: svc, status: 'shared', pid: null });
-        return;
-      }
       warn(`Port ${svc.port} is occupied by an unknown process; ${svc.name} may fail to start`);
     }
 
@@ -264,7 +199,7 @@ async function main() {
   if (!allOk) { error('Environment check failed'); process.exit(1); }
 
   const installStatus = checkInstallStatus();
-  if (!installStatus.aiVenv || !installStatus.aiDeps || !installStatus.serverDeps || !installStatus.frontendDeps) {
+  if (!installStatus.serverDeps || !installStatus.frontendDeps) {
     warn('Dependencies not fully installed');
     log('');
     log('Please run install script:');
@@ -290,7 +225,7 @@ async function main() {
   log('');
   log(styled('Service Status:', C.bold));
   for (const r of results) {
-    const statusText = r.status === 'ready' ? styled('READY', C.green) : r.status === 'shared' ? styled('SHARED', C.cyan) : r.status === 'already-running' ? styled('RUNNING', C.yellow) : styled('STARTING', C.yellow);
+    const statusText = r.status === 'ready' ? styled('READY', C.green) : r.status === 'already-running' ? styled('RUNNING', C.yellow) : styled('STARTING', C.yellow);
     log(`  [OK] ${r.service.name}: ${statusText} (PID: ${r.pid})`);
   }
 
@@ -298,7 +233,6 @@ async function main() {
   log(styled('URLs:', C.bold));
   log(`  Frontend: ${styled('http://localhost:5173', C.cyan)}`);
   log(`  API:      ${styled('http://localhost:3000', C.cyan)}`);
-  log(`  AI:       ${styled('http://localhost:5000', C.cyan)}`);
 
   log('');
   log(styled('Logs:', C.bold) + ` ${LOG_DIR}`);

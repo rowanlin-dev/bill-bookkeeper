@@ -14,7 +14,6 @@ const ROOT = path.resolve(__dirname, '..');
 const PID_DIR = path.join(ROOT, '.pids');
 
 const ALL_SERVICES = [
-  { key: 'ai-service', name: 'AI Service', port: 5000 },
   { key: 'server', name: 'Server', port: 3000 },
   { key: 'frontend', name: 'Frontend', port: 5173 },
 ];

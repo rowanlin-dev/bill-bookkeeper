@@ -43,7 +43,7 @@
 | 修改 AI 配置 | 网页「设置」页（写入 `.env`） |
 | 校准账户余额 | 看板「账户余额」卡片 → 校准余额（弹对话框输入真实余额） |
 | 导出/导入账本（JSON） | 网页「设置 → 账本数据」→ 导出 / 导入 |
-| 导入 Excel 账本 | `scripts/migrate.bat` |
+| 导入 Excel 账本 | `scripts/migrate.bat`（需系统 Python + `pip install openpyxl`） |
 | 安装/诊断/卸载等辅助脚本 | `scripts/` 目录 |
 
 ---
@@ -57,8 +57,8 @@ bill-bookkeeper/
 ├── 📄 .env                 ← 敏感配置（不入库，模板见 .env.example）
 │
 ├── 📁 packages/
-│   ├── 📁 ai/              ← AI 服务 (Python FastAPI, :5000)
-│   ├── 📁 server/          ← 后端服务 (Node Express, :3000)
+│   ├── 📁 server/          ← 后端服务 (Node Express, :3000，含进程内 AI)
+│   │   └── 📁 src/ai/      ← AI 能力（进程内，无需独立服务）
 │   └── 📁 frontend/        ← 前端界面 (Vue3, :5173)
 │
 ├── 📁 scripts/             ← 安装/迁移/诊断等辅助脚本
@@ -72,13 +72,12 @@ bill-bookkeeper/
 
 | 服务 | bill-bookkeeper | snowball-daily |
 |------|----------------|----------------|
-| AI 服务 | :5000（**两项目共享单例**，先启先用） | :5000（复用） |
 | 后端 | :3000 | :3100 |
 | 前端 | :5173 | :5273 |
 
 ## 技术栈
 
-- **AI**: Python + FastAPI + DeepSeek API
+- **AI**: 进程内实现（`packages/server/src/ai/`）+ 智谱 GLM / DeepSeek API，无需独立 Python 服务
 - **后端**: Node.js (≥22.5) + Express + **node:sqlite**（内置 SQLite，无原生模块）
 - **前端**: Vue3 + Vite + TailwindCSS + Chart.js + Pinia
 - **双模式**: 在线 fetch 版（Node 后端 + SQLite）/ 离线单文件版（纯浏览器 IndexedDB，无需服务器，`file://` 直接打开）

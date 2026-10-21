@@ -17,13 +17,11 @@ echo.
 :: Check env
 echo [1/5] Check environment...
 node -v >nul 2>&1 && echo    Node.js: OK || echo    Node.js: MISSING
-python --version >nul 2>&1 && echo    Python: OK || echo    Python: MISSING
 pnpm -v >nul 2>&1 && echo    pnpm: OK || echo    pnpm: MISSING
 echo.
 
 :: Check install
 echo [2/5] Check install status...
-if exist "packages\ai\venv" (echo    AI venv: OK) else (echo    AI venv: MISSING)
 if exist "packages\server\node_modules" (echo    Server deps: OK) else (echo    Server deps: MISSING)
 if exist "packages\frontend\node_modules" (echo    Frontend deps: OK) else (echo    Frontend deps: MISSING)
 if exist "data\config.json" (echo    Config: OK) else (echo    Config: MISSING)
@@ -31,7 +29,7 @@ echo.
 
 :: Check running
 echo [3/5] Check service status...
-for %%p in (5000 3000 5173) do (
+for %%p in (3000 5173) do (
     netstat -ano | findstr ":%%p" >nul 2>&1
     if !errorlevel! equ 0 (
         echo    Port %%p: RUNNING
@@ -43,7 +41,7 @@ echo.
 
 :: Show logs
 echo [4/5] Recent logs...
-for %%s in (ai-service server frontend) do (
+for %%s in (server frontend) do (
     echo    [%%s.log]
     if exist "data\logs\%%s.log" (
         powershell -Command "Get-Content data\logs\%%s.log -Tail 3 -ErrorAction SilentlyContinue" 2>nul

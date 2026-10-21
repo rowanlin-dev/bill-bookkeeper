@@ -13,7 +13,6 @@ echo    Bill-Bookkeeper Uninstall
 echo ============================================
 echo.
 echo [WARNING] This will delete:
-echo    - Python venv
 echo    - node_modules
 echo    - Log files
 echo.
@@ -31,18 +30,15 @@ if /i not "%CONFIRM%"=="yes" (
 )
 
 echo.
-echo [1/4] Stop services...
+echo [1/3] Stop services...
 node scripts\_core-stop.js >nul 2>&1
 
-echo [2/4] Remove venv...
-if exist "packages\ai\venv" rmdir /s /q "packages\ai\venv"
-
-echo [3/4] Remove node_modules...
+echo [2/3] Remove node_modules...
 for %%d in (server frontend) do (
     if exist "packages\%%d\node_modules" rmdir /s /q "packages\%%d\node_modules"
 )
 
-echo [4/4] Clean logs and cache...
+echo [3/3] Clean logs and cache...
 if exist "data\logs" rmdir /s /q "data\logs"
 if exist "data\cache" rmdir /s /q "data\cache"
 if exist ".pids" rmdir /s /q ".pids"

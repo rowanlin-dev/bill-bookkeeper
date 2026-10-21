@@ -4,7 +4,6 @@ data/config.json
 
 # ===== 依赖 =====
 node_modules/
-packages/ai/venv/
 
 # ===== 运行数据 =====
 data/*.db

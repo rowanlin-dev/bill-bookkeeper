@@ -15,16 +15,20 @@ echo ============================================
 echo.
 
 :: Check Python
+:: 注意：本脚本是数据迁移工具，不是 AI 服务；AI 已并入 Node 后端进程内。
+:: 这里使用系统 Python（原 AI 服务的虚拟环境已随 Python 服务一并删除），需自备 openpyxl。
 echo [1/2] Check environment...
 python --version >nul 2>&1
 if %errorlevel% neq 0 (
     echo    [ERROR] Python not found
+    echo    Install Python 3.9+ from https://python.org/
     pause
     exit /b 1
 )
-
-if not exist "packages\ai\venv" (
-    echo    [ERROR] venv not found, run install.bat first
+python -c "import openpyxl" >nul 2>&1
+if %errorlevel% neq 0 (
+    echo    [ERROR] openpyxl not found
+    echo    Run: pip install openpyxl
     pause
     exit /b 1
 )
@@ -44,7 +48,7 @@ echo.
 
 :: Run migration
 echo [MIGRATE] Start migrating...
-packages\ai\venv\Scripts\python.exe scripts\migrate-data.py
+python scripts\migrate-data.py
 
 echo.
 pause
