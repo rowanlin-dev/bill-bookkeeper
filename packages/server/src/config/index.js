@@ -11,6 +11,8 @@ module.exports = {
   rootDir: ROOT,
   dataDir: path.join(ROOT, 'data'),
   envPath: path.join(ROOT, '.env'),
+  // ⚠️ 已废弃：AI 能力已在进程内实现（src/ai/），不再通过 :5000 跨进程调用 Python 服务。
+  // 保留字段仅为兼容历史引用，请勿再使用。
   aiServiceUrl: process.env.AI_SERVICE_URL || 'http://localhost:5000',
   aiMasterKey: process.env.AI_MASTER_KEY || 'bill-local-key',
   dbPath: path.join(ROOT, 'data', 'ledger.db'),

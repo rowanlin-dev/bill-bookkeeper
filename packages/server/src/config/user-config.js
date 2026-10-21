@@ -11,6 +11,10 @@ const KEY_MAP = {
   aiApiKey: 'AI_API_KEY',
   aiBaseUrl: 'AI_BASE_URL',
   aiModel: 'AI_MODEL',
+  // 视觉模型（智谱 GLM）：新增，详见 src/ai/client.js
+  visionApiKey: 'VISION_API_KEY',
+  visionBaseUrl: 'VISION_BASE_URL',
+  visionModel: 'VISION_MODEL',
 };
 
 const DEFAULTS = {
@@ -18,6 +22,9 @@ const DEFAULTS = {
   aiApiKey: '',
   aiBaseUrl: 'https://api.deepseek.com/v1',
   aiModel: 'deepseek-chat',
+  visionApiKey: '',
+  visionBaseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+  visionModel: 'glm-4.6v-flash',
 };
 
 // 解析 .env 文本为键值对（支持注释与空行，值不含引号）

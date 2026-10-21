@@ -15,6 +15,11 @@ router.get('/', async (req, res) => {
         aiModel: cfg.aiModel,
         hasApiKey: Boolean(cfg.aiApiKey),
         aiApiKeyMasked: maskKey(cfg.aiApiKey),
+        // 视觉模型（智谱 GLM）：同样只返回掩码，绝不返回明文
+        visionBaseUrl: cfg.visionBaseUrl,
+        visionModel: cfg.visionModel,
+        hasVisionApiKey: Boolean(cfg.visionApiKey),
+        visionApiKeyMasked: maskKey(cfg.visionApiKey),
       },
     });
   } catch (e) {
@@ -25,12 +30,16 @@ router.get('/', async (req, res) => {
 // PUT /api/config - 更新配置（apiKey 传空字符串表示保持原值不变）
 router.put('/', async (req, res) => {
   try {
-    const { aiProvider, aiBaseUrl, aiModel, aiApiKey } = req.body || {};
+    const { aiProvider, aiBaseUrl, aiModel, aiApiKey, visionBaseUrl, visionModel, visionApiKey } =
+      req.body || {};
     const patch = {};
     if (aiProvider !== undefined) patch.aiProvider = aiProvider;
     if (aiBaseUrl !== undefined) patch.aiBaseUrl = aiBaseUrl;
     if (aiModel !== undefined) patch.aiModel = aiModel;
     if (aiApiKey) patch.aiApiKey = aiApiKey; // 空值不覆盖，避免误清空
+    if (visionBaseUrl !== undefined) patch.visionBaseUrl = visionBaseUrl;
+    if (visionModel !== undefined) patch.visionModel = visionModel;
+    if (visionApiKey) patch.visionApiKey = visionApiKey; // 同上，空值不覆盖
 
     const merged = await saveUserConfig(patch);
     res.json({
@@ -41,6 +50,10 @@ router.put('/', async (req, res) => {
         aiModel: merged.aiModel,
         hasApiKey: Boolean(merged.aiApiKey),
         aiApiKeyMasked: maskKey(merged.aiApiKey),
+        visionBaseUrl: merged.visionBaseUrl,
+        visionModel: merged.visionModel,
+        hasVisionApiKey: Boolean(merged.visionApiKey),
+        visionApiKeyMasked: maskKey(merged.visionApiKey),
       },
     });
   } catch (e) {
