@@ -228,7 +228,6 @@
         <div class="flex items-center gap-2 mb-2">
           <select v-model="logService" @change="loadLogs" class="border rounded-lg px-2 py-1.5 text-sm">
             <option value="server">后端服务</option>
-            <option value="ai-service">AI 服务</option>
             <option value="frontend">前端界面</option>
           </select>
           <button @click="loadLogs" class="text-sm text-blue-500 hover:text-blue-700">刷新日志</button>
