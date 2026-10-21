@@ -17,6 +17,18 @@ function extractJson(text) {
   }
 }
 
+// 统一消化 /api/ai/chat 的返回 → { operations, summary }
+// 优先消费后端已结构化的 operations；缺失时回退从 response 文本里抠 JSON（兼容旧返回）
+function digestAiResult(data) {
+  if (Array.isArray(data?.operations)) {
+    return { operations: data.operations, summary: data.summary || '' }
+  }
+  const parsed = normalizeOperations(extractJson(data?.response))
+  if (parsed) return parsed
+  // AI 没按格式返回时，把原文作为摘要展示，不静默吞掉
+  return { operations: [], summary: data?.response || 'AI 未返回有效内容' }
+}
+
 // 统一为操作列表格式（兼容旧版 transactions 输出）
 function normalizeOperations(parsed) {
   if (!parsed) return null
@@ -64,12 +76,20 @@ export const useTransactionStore = defineStore('transactions', () => {
       messages: [{ role: 'user', content: text }],
       context: {},
     })
-
-    const parsed = normalizeOperations(extractJson(data.response))
-    if (parsed) return parsed
-    // AI 没按格式返回时，把原文作为摘要展示，不静默吞掉
-    return { operations: [], summary: data.response || 'AI 未返回有效内容' }
+    return digestAiResult(data)
   }
 
-  return { transactions, loading, fetchTransactions, addTransaction, updateTransaction, deleteTransaction, parseWithAI }
+  // 图片记账：base64 图片交给 VisionParser，返回结构与文字解析完全一致，
+  // 因此 ChatInput 的「操作清单 → 勾选 → 落库」链路可直接复用
+  async function parseImageWithAI(imageBase64) {
+    const data = await api.post('/ai/chat', {
+      project: 'bill',
+      skill: 'VisionParser',
+      image: imageBase64,
+      messages: [],
+    })
+    return digestAiResult(data)
+  }
+
+  return { transactions, loading, fetchTransactions, addTransaction, updateTransaction, deleteTransaction, parseWithAI, parseImageWithAI }
 })

@@ -135,6 +135,46 @@
         </div>
       </div>
 
+      <!-- 视觉模型配置 -->
+      <div class="pt-4 border-t">
+        <div>
+          <h3 class="font-medium text-gray-700 mb-3">视觉模型配置</h3>
+          <p class="text-sm text-gray-500 leading-relaxed mb-3">
+            用于「图片记账」：上传账单 / 付款截图后，由视觉模型识别为记账条目。
+            智谱开放平台提供免费视觉模型，注册 open.bigmodel.cn 即可获取 Key。
+          </p>
+
+          <div v-if="loaded" class="mb-4 text-sm">
+            <span v-if="hasVisionApiKey" class="px-2 py-1 bg-green-100 text-green-700 rounded">
+              ✅ 已配置（{{ maskedVisionKey }}）
+            </span>
+            <span v-else class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded">
+              ⚠️ 未配置视觉模型 Key，图片记账不可用
+            </span>
+          </div>
+
+          <div class="space-y-3">
+            <div>
+              <label class="block text-sm text-gray-600 mb-1">VISION_API_KEY</label>
+              <input
+                type="password"
+                v-model="form.visionApiKey"
+                class="w-full border rounded-lg px-3 py-2"
+                :placeholder="hasVisionApiKey ? '已保存，输入新 Key 可替换' : '输入智谱 API Key'"
+              />
+            </div>
+            <div>
+              <label class="block text-sm text-gray-600 mb-1">VISION_MODEL</label>
+              <select v-model="form.visionModel" class="w-full border rounded-lg px-3 py-2">
+                <option value="glm-4.6v-flash">glm-4.6v-flash</option>
+                <option value="glm-4.1v-thinking-flash">glm-4.1v-thinking-flash</option>
+                <option value="glm-4v-flash">glm-4v-flash</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="pt-4 border-t flex items-center gap-3">
         <button
           @click="saveConfig"
@@ -211,10 +251,12 @@ import { useCashflowStore } from '../stores/cashflow'
 
 const isOffline = import.meta.env.VITE_OFFLINE === 'true'
 
-const form = ref({ aiApiKey: '', aiModel: 'deepseek-chat' })
+const form = ref({ aiApiKey: '', aiModel: 'deepseek-chat', visionApiKey: '', visionModel: 'glm-4.6v-flash' })
 const loaded = ref(false)
 const hasApiKey = ref(false)
 const maskedKey = ref('')
+const hasVisionApiKey = ref(false)
+const maskedVisionKey = ref('')
 const saving = ref(false)
 const message = ref('')
 const messageOk = ref(true)
@@ -250,6 +292,9 @@ onMounted(async () => {
     form.value.aiModel = res.data.aiModel || 'deepseek-chat'
     hasApiKey.value = res.data.hasApiKey
     maskedKey.value = res.data.aiApiKeyMasked
+    form.value.visionModel = res.data.visionModel || 'glm-4.6v-flash'
+    hasVisionApiKey.value = !!res.data.hasVisionApiKey
+    maskedVisionKey.value = res.data.visionApiKeyMasked || ''
     loaded.value = true
   } catch (e) {
     message.value = '配置加载失败：' + e.message
@@ -263,13 +308,17 @@ async function saveConfig() {
   saving.value = true
   message.value = ''
   try {
-    const res = await api.put('/config', {
-      aiModel: form.value.aiModel,
-      aiApiKey: form.value.aiApiKey,
-    })
+    const payload = { aiModel: form.value.aiModel, aiApiKey: form.value.aiApiKey }
+    // 视觉配置留空表示不修改，避免误清空已保存的 Key
+    if (form.value.visionModel) payload.visionModel = form.value.visionModel
+    if (form.value.visionApiKey) payload.visionApiKey = form.value.visionApiKey
+    const res = await api.put('/config', payload)
     hasApiKey.value = res.data.hasApiKey
     maskedKey.value = res.data.aiApiKeyMasked
+    hasVisionApiKey.value = !!res.data.hasVisionApiKey
+    maskedVisionKey.value = res.data.visionApiKeyMasked || (hasVisionApiKey.value ? maskedVisionKey.value : '')
     form.value.aiApiKey = ''
+    form.value.visionApiKey = ''
     message.value = '配置已保存'
     messageOk.value = true
   } catch (e) {

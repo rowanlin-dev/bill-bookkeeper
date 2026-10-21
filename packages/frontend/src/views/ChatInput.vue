@@ -4,27 +4,74 @@
       <h2 class="text-xl font-bold text-gray-800 mb-4">🤖 AI 智能记账</h2>
 
       <!-- 输入框 -->
-      <div class="space-y-4">
+      <div
+        class="space-y-4"
+        @dragover.prevent="onDragOver"
+        @dragleave.prevent="onDragLeave"
+        @drop.prevent="onDrop"
+      >
+        <!-- 图片预览：仅存在于组件内存（ref），不写 localStorage / IndexedDB / 服务端 -->
+        <div v-if="imageDataUrl" class="flex items-start gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <img
+            :src="imageDataUrl"
+            alt="待识别图片"
+            style="width:120px;height:120px"
+            class="object-contain bg-white rounded border border-blue-100"
+          />
+          <div class="flex-1 text-sm text-blue-800">
+            <div>已选图片，发送后将由 AI 识别为记账条目</div>
+            <div v-if="imageSizeText" class="mt-1 text-xs text-blue-600">{{ imageSizeText }}</div>
+          </div>
+          <button
+            type="button"
+            @click="clearImage"
+            title="移除图片"
+            class="px-1 text-gray-500 hover:text-red-600"
+          >❌</button>
+        </div>
+
+        <p v-if="imageError" class="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">
+          {{ imageError }}
+          <button type="button" @click="openImagePicker" class="ml-2 text-blue-600 underline">重新上传</button>
+        </p>
+
         <textarea
           v-model="inputText"
+          @paste="onPaste"
           placeholder="支持记账、转账、报余额、取消固定支出，例如：&#10;晚饭13，饮料7&#10;充值岭南通20（自动识别为转账）&#10;现在微信剩2156.33（自动校准余额）&#10;酷狗会员以后不每月扣了（自动取消固定支出）"
           class="w-full h-32 p-4 border rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          :class="dragActive ? 'ring-2 ring-blue-400 border-transparent' : ''"
         />
         <div class="flex gap-3">
           <button
-            @click="parseText"
-            :disabled="loading || !inputText.trim()"
-            class="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            v-if="!isOffline"
+            type="button"
+            @click="openImagePicker"
+            :disabled="loading"
+            title="选择图片，由 AI 识别为记账条目"
+            class="px-4 py-2.5 border rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {{ loading ? '解析中...' : 'AI 解析' }}
+            🖼️
           </button>
           <button
-            @click="inputText = ''"
+            @click="submit"
+            :disabled="loading || (!inputText.trim() && !imageBase64)"
+            class="flex-1 bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {{ loading ? (imageBase64 ? '识别中...' : '解析中...') : (imageBase64 ? 'AI 识别图片' : 'AI 解析') }}
+          </button>
+          <button
+            @click="clearAll"
             class="px-4 py-2.5 border rounded-lg text-gray-600 hover:bg-gray-50"
           >
             清空
           </button>
         </div>
+
+        <p v-if="isOffline" class="text-xs text-gray-500">图片识别需要调用云端视觉模型，仅在在线模式可用。</p>
+        <p v-else class="text-xs text-gray-500">也可粘贴（Ctrl/Cmd+V）或拖拽账单截图到输入框，由 AI 识别为记账条目；图片用完即弃，不会保存。</p>
+
+        <input ref="imageInput" type="file" accept="image/*" class="hidden" @change="onImagePicked" />
       </div>
 
       <!-- 解析结果 -->
@@ -188,14 +235,150 @@ const doneCount = ref(0)
 const parsedData = ref(null)
 const recentTransactions = ref([])
 
+// 离线模式禁用图片入口：视觉解析只走 Node 后端，避免 Key 暴露在浏览器
+const isOffline = import.meta.env.VITE_OFFLINE === 'true'
+const OFFLINE_IMAGE_HINT = '图片识别需要调用云端视觉模型，仅在在线模式可用。'
+const MAX_EDGE = 1024
+const MAX_IMAGE_BYTES = Math.round(1.5 * 1024 * 1024)
+
+// 图片只存在于组件内存：预览用 dataUrl，发送用压缩后的 base64，均不落任何持久化存储
+const imageInput = ref(null)
+const imageDataUrl = ref('')
+const imageBase64 = ref('')
+const imageSizeText = ref('')
+const imageError = ref('')
+const dragActive = ref(false)
+
 const checkedCount = computed(() =>
   (parsedData.value?.operations || []).filter(o => o.selected).length
 )
+
+function clearImage() {
+  imageDataUrl.value = ''
+  imageBase64.value = ''
+  imageSizeText.value = ''
+  if (imageInput.value) imageInput.value.value = ''
+}
+
+function clearAll() {
+  inputText.value = ''
+  clearImage()
+}
+
+function openImagePicker() {
+  if (isOffline) {
+    imageError.value = OFFLINE_IMAGE_HINT
+    return
+  }
+  imageError.value = ''
+  imageInput.value?.click()
+}
+
+// 压缩：长边 ≤1024px、JPEG 质量 0.8，返回待发送的 base64（dataUrl 仅用于预览）
+function compressImage(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = () => reject(new Error('图片读取失败，请重试'))
+    reader.onload = () => {
+      const img = new Image()
+      img.onerror = () => reject(new Error('图片无法解析，请换一张'))
+      img.onload = () => {
+        const scale = Math.min(1, MAX_EDGE / Math.max(img.width, img.height))
+        const w = Math.max(1, Math.round(img.width * scale))
+        const h = Math.max(1, Math.round(img.height * scale))
+        const canvas = document.createElement('canvas')
+        canvas.width = w
+        canvas.height = h
+        const ctx = canvas.getContext('2d')
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, w, h)
+        ctx.drawImage(img, 0, 0, w, h)
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
+        const base64 = dataUrl.split(',')[1] || ''
+        resolve({ base64, dataUrl, bytes: base64.length })
+      }
+      img.src = reader.result
+    }
+    reader.readAsDataURL(file)
+  })
+}
+
+async function attachImageFile(file) {
+  if (!file) return
+  if (isOffline) {
+    imageError.value = OFFLINE_IMAGE_HINT
+    return
+  }
+  if (!String(file.type || '').startsWith('image/')) {
+    imageError.value = '只支持图片文件（image/*）'
+    return
+  }
+  imageError.value = ''
+  try {
+    const { base64, dataUrl, bytes } = await compressImage(file)
+    // 超过硬上限直接阻止发送，不静默截断
+    if (bytes > MAX_IMAGE_BYTES) {
+      imageError.value = `图片过大（压缩后约 ${(bytes / 1024 / 1024).toFixed(2)}MB，上限 1.5MB），请换一张或裁剪后重试`
+      return
+    }
+    imageBase64.value = base64
+    imageDataUrl.value = dataUrl
+    imageSizeText.value = `压缩后约 ${Math.round(bytes / 1024)} KB · 长边 ≤ ${MAX_EDGE}px`
+  } catch (e) {
+    imageError.value = e.message || '图片处理失败，请重试'
+  }
+}
+
+function onImagePicked(e) {
+  const file = e.target.files && e.target.files[0]
+  attachImageFile(file)
+  e.target.value = ''
+}
+
+function onPaste(e) {
+  if (isOffline) return
+  const items = e.clipboardData && e.clipboardData.items
+  if (!items) return
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i]
+    if (item.type && item.type.startsWith('image/')) {
+      const file = item.getAsFile()
+      if (file) {
+        e.preventDefault()
+        attachImageFile(file)
+      }
+      return
+    }
+  }
+}
+
+function onDragOver() {
+  if (!isOffline) dragActive.value = true
+}
+
+function onDragLeave() {
+  dragActive.value = false
+}
+
+function onDrop(e) {
+  dragActive.value = false
+  if (isOffline) {
+    imageError.value = OFFLINE_IMAGE_HINT
+    return
+  }
+  const files = e.dataTransfer && e.dataTransfer.files
+  const file = Array.from(files || []).find(f => String(f.type || '').startsWith('image/'))
+  if (file) attachImageFile(file)
+}
 
 onMounted(async () => {
   await Promise.all([store.fetchTransactions({ limit: 200 }), accountStore.fetchAccounts()])
   recentTransactions.value = store.transactions.slice(0, 10)
 })
+
+function submit() {
+  return imageBase64.value ? parseImage() : parseText()
+}
 
 async function parseText() {
   if (!inputText.value.trim()) return
@@ -203,27 +386,48 @@ async function parseText() {
   loading.value = true
   try {
     const result = await store.parseWithAI(inputText.value)
-    const ops = result.operations || []
-    ops.forEach(o => {
-      o.selected = true
-      o.dup = false
-      // 疑似重复检测：同日期 + 同名称 + 同金额 已存在
-      if (o.op === 'add') {
-        const dup = store.transactions.some(t =>
-          t.date === o.date && t.name === o.name && Number(t.amount) === Number(o.amount)
-        )
-        if (dup) {
-          o.dup = true
-          o.selected = false
-        }
-      }
-    })
-    parsedData.value = { operations: ops, summary: result.summary }
+    applyResult(result)
   } catch (e) {
     alert('解析失败：' + e.message)
   } finally {
     loading.value = false
   }
+}
+
+// 有图走 VisionParser，识别结果与文字解析同构，复用下方同一套清单渲染与落库链路
+async function parseImage() {
+  if (!imageBase64.value) return
+
+  loading.value = true
+  imageError.value = ''
+  try {
+    const result = await store.parseImageWithAI(imageBase64.value)
+    applyResult(result)
+    clearImage() // 发送成功后立即清空预览：图片用完即弃
+  } catch (e) {
+    imageError.value = '识别失败：' + e.message
+  } finally {
+    loading.value = false
+  }
+}
+
+function applyResult(result) {
+  const ops = result.operations || []
+  ops.forEach(o => {
+    o.selected = true
+    o.dup = false
+    // 疑似重复检测：同日期 + 同名称 + 同金额 已存在
+    if (o.op === 'add') {
+      const dup = store.transactions.some(t =>
+        t.date === o.date && t.name === o.name && Number(t.amount) === Number(o.amount)
+      )
+      if (dup) {
+        o.dup = true
+        o.selected = false
+      }
+    }
+  })
+  parsedData.value = { operations: ops, summary: result.summary }
 }
 
 function opCardClass(op) {
