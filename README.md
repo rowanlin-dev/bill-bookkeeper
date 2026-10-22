@@ -1,6 +1,37 @@
-# Bill-Bookkeeper 记账管家
+# 💰 Bill-Bookkeeper 记账管家
 
-> 💰 个人财务记账系统：AI 智能识别 + 多账户体系 + Web 可视化看板
+> 个人财务记账系统：AI 智能识别 + 多账户体系 + Web 可视化看板 + 现金流预测
+
+![Version](https://img.shields.io/badge/version-2.7.0-0f6e56) ![Vue3](https://img.shields.io/badge/frontend-Vue3%20%2B%20Vite-42b883) ![Node](https://img.shields.io/badge/backend-Node.js%20%3E%3D22.5-339933) ![AI](https://img.shields.io/badge/AI-DeepSeek%20%2F%20GLM-4d6bfe) ![Mode](https://img.shields.io/badge/modes-online%20%7C%20offline-orange)
+
+**🌐 在线展示站（含完整功能介绍与界面演示）：<https://minipluto.cn/bill-bookkeeper/>**
+
+![看板总览](assets/screenshots/dashboard.png)
+
+一句话记一整天的账：AI 自动拆分收支、识别分类与账户；微信 / 银行卡 / 现金等多账户余额对得上真实钱包；30 / 90 / 180 天现金流预测提前告诉你"哪个月会没钱"。
+
+---
+
+## 界面一览
+
+<p align="center">
+  <img src="assets/screenshots/ai-entry.png" width="49%" alt="AI 智能记账：一句话、粘贴、图片多种输入方式" />
+  <img src="assets/screenshots/ai-parse.png" width="49%" alt="AI 解析结果：多笔支出逐条确认后入库" />
+</p>
+<p align="center">
+  <img src="assets/screenshots/ledger.png" width="75%" alt="账本明细：每笔记录带账户与状态标签" />
+</p>
+<p align="center">
+  <img src="assets/screenshots/cashflow.png" width="49%" alt="现金流预测：30/90/180 天余额曲线、AI 风险解读、情景模拟、债务规划" />
+  <img src="assets/screenshots/settings.png" width="49%" alt="设置：账本导入导出、演示数据、AI 配置、系统控制台" />
+</p>
+<p align="center">
+  <img src="assets/screenshots/utilities.png" width="42%" alt="水电记录：录入表读数，自动计算用量与日均" />
+</p>
+
+> 以上页面均基于内置**脱敏演示数据**（设置页可一键加载）。
+
+---
 
 ## 快速开始
 
@@ -18,7 +49,7 @@
 
 | 功能 | 说明 |
 |------|------|
-| 🤖 **AI 智能记账** | 自然语言一句话记一整天的账，自动识别收支、分类 |
+| 🤖 **AI 智能记账** | 自然语言一句话记一整天的账，自动识别收支、分类；支持图片 / 粘贴账单解析 |
 | 🔀 **账户体系** | 微信/银行卡/现金/交通卡…分账户余额，充值=转账不双计 |
 | 🎯 **余额校准** | 报一次真实余额即可锚定，系统永远对得上你的钱包 |
 | 📤 **账本导出/导入** | 在线版「设置」一键导出 JSON；可再导入合并（sync_id 去重），离线↔在线双向同步 |
@@ -43,6 +74,7 @@
 | 修改 AI 配置 | 网页「设置」页（写入 `.env`） |
 | 校准账户余额 | 看板「账户余额」卡片 → 校准余额（弹对话框输入真实余额） |
 | 导出/导入账本（JSON） | 网页「设置 → 账本数据」→ 导出 / 导入 |
+| 加载演示数据 | 网页「设置 → 演示数据」→ 一键加载 / 重置 |
 | 导入 Excel 账本 | `scripts/migrate.bat`（需系统 Python + `pip install openpyxl`） |
 | 安装/诊断/卸载等辅助脚本 | `scripts/` 目录 |
 
@@ -62,6 +94,8 @@ bill-bookkeeper/
 │   └── 📁 frontend/        ← 前端界面 (Vue3, :5173)
 │
 ├── 📁 scripts/             ← 安装/迁移/诊断等辅助脚本
+│
+├── 📁 assets/screenshots/  ← README 界面截图
 │
 └── 📁 data/
     ├── 📄 ledger.db        ← 你的数据 (SQLite)
